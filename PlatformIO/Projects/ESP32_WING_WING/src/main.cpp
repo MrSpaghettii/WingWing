@@ -1,17 +1,56 @@
 #include <Arduino.h>
+#include <Wire.h>
 
 void setup() {
-    // Initialize the USB Serial port
     Serial.begin(115200);
-    // Wait up to 2 seconds for the serial monitor to open
-    unsigned long start = millis();
-    while (!Serial && (millis() - start < 2000));
+    // Wait 2 seconds to ensure the serial monitor is open before printing
+    delay(2000); 
     
-    Serial.println("--- Code-OSS Environment Check ---");
-    Serial.println("ESP32-S3 Core: Initialized successfully.");
+    Serial.println("\n--- Flight Controller Booting ---");
+
+    // Initialize I2C on SDA=8, SCL=9
+    Wire.begin(8, 9);
+    
+    // Set a timeout so the ESP32 doesn't freeze if a wire is loose
+    Wire.setTimeOut(100); 
+    
+    Serial.println("Scanning for MPU-6050 Gyro...");
+    
+    // Check if the sensor exists at the standard 0x68 address
+    Wire.beginTransmission(0x68);
+    byte error = Wire.endTransmission();
+    
+    if (error == 0) {
+        Serial.println("SUCCESS: MPU-6050 Found!");
+        // Wake it up
+        Wire.beginTransmission(0x68);
+        Wire.write(0x6B);
+        Wire.write(0);
+        Wire.endTransmission();
+    } else {
+        Serial.printf("ERROR: MPU-6050 missing. I2C Error Code: %d\n", error);
+        Serial.println("Check your wires: 3.3V, GND, SDA (GPIO 8), SCL (GPIO 9)");
+    }
 }
 
 void loop() {
-    Serial.println("Flight controller loop running...");
-    delay(1000);
+    // Only try to read data if the sensor is actually connected
+    Wire.beginTransmission(0x68);
+    if (Wire.endTransmission() == 0) {
+        Wire.beginTransmission(0x68);
+        Wire.write(0x3B);
+        Wire.endTransmission(false);
+        
+        Wire.requestFrom((uint16_t)0x68, (uint8_t)6, true);
+        
+        int16_t AcX = Wire.read() << 8 | Wire.read();
+        int16_t AcY = Wire.read() << 8 | Wire.read();
+        int16_t AcZ = Wire.read() << 8 | Wire.read();
+        
+        Serial.printf("Accel X: %d | Y: %d | Z: %d\n", AcX, AcY, AcZ);
+    } else {
+        Serial.println("Waiting for Gyro connection...");
+    }
+    
+    delay(500);
 }
