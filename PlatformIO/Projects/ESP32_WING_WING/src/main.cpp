@@ -22,14 +22,17 @@ void setup() {
     
     if (error == 0) {
         Serial.println("SUCCESS: MPU-6050 Found!");
-        // Wake it up
+        // open i2c communication
         Wire.beginTransmission(0x68);
+        // I want to change thispower management register to 0
         Wire.write(0x6B);
+        //sleep no more
         Wire.write(0);
+
         Wire.endTransmission();
     } else {
         Serial.printf("ERROR: MPU-6050 missing. I2C Error Code: %d\n", error);
-        Serial.println("Check your wires: 3.3V, GND, SDA (GPIO 8), SCL (GPIO 9)");
+        Serial.println("Check wire configuration: (3v3 - VCC)  (port #8 - SDA) (port #9 - SCL) (GND - GND)");
     }
 }
 
